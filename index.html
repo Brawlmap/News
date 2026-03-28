@@ -23,7 +23,7 @@
           <a href="">home</a>
           <a href="">design</a>
           <a href="">blog</a>
-          <a href="">about</a>
+          <a href="#" id="adminLoginBtn" onclick="tryLogin(); return false;" style="color: #ffca28;">admin login</a>
         </div>
       </div>
     </nav>
@@ -33,7 +33,7 @@
         <h1 class="banner-title"><span>Brawlmap.</span> News</h1>
         <p>everything that you want to know about art & design</p>
         <form>
-          <input type="text" class="search-input" placeholder="Search . . .">
+          <input type="text" class="search-input" placeholder="find your news . . .">
           <button type="submit" class="search-btn"><i class="fas fa-search"></i></button>
         </form>
       </div>
@@ -58,23 +58,36 @@
         <p>recent blogs about art & design</p>
       </div>
 
-      <button class="create-btn" id="createBtn" style="display: none;">
-        <i class="fas fa-plus"></i> Create New Blog Post
-      </button>
+      <div style="text-align: center; margin-bottom: 20px;">
+        <button class="create-btn" id="createBtn" style="display: none;">
+          <i class="fas fa-plus"></i> Create New Blog Post
+        </button>
+      </div>
 
       <div class="blog-content" id="blogContent">
         </div>
     </div>
   </section>
 
-  <footer>
-    <div class="social-links">
+<footer style="padding: 40px 0; text-align: center; background: #f9f9f9; border-top: 1px solid #eee;">
+    <div class="social-links" style="margin-bottom: 15px;">
       <a href="#"><i class="fab fa-facebook-f"></i></a>
       <a href="#"><i class="fab fa-twitter"></i></a>
       <a href="#"><i class="fab fa-instagram"></i></a>
       <a href="#"><i class="fab fa-pinterest"></i></a>
     </div>
-    <span>Art.Design Blog Page</span>
+    
+    <div style="display: flex; flex-direction: column; gap: 5px; align-items: center;">
+      <span style="font-weight: bold; letter-spacing: 1px; color: #333;">brawlmap news page</span>
+      
+      <div style="font-size: 0.85rem; color: #888; display: flex; gap: 10px; align-items: center;">
+        <span>v1.2.0</span>
+        <span style="color: #ddd;">|</span>
+        <a href="changelog.html" style="color: #2962ff; text-decoration: none; font-weight: 500;">view changelog</a>
+      </div>
+      
+      <p style="font-size: 0.75rem; color: #bbb; margin-top: 10px;">&copy; 2026 brawlmap project</p>
+    </div>
   </footer>
 
   <div class="modal" id="postModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1000;">
@@ -92,18 +105,18 @@
   </div>
 
   <script>
-    // updated config
-    const SUPABASE_URL = 'https://sqzckjugwivmazyumeso.supabase.co'; // removed /blog_posts
+    const SUPABASE_URL = 'https://sqzckjugwivmazyumeso.supabase.co';
     const SUPABASE_KEY = 'sb_publishable_8ijaRjAdI8YZyrLgocflhA_Mh4ki9Qn'; 
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
     const ADMIN_PASSWORD = "tester"; 
     let posts = [];
     let currentEditId = null;
+    let isAdmin = false; // logic flag
 
     async function fetchPosts() {
       const { data, error } = await supabaseClient
-        .from('blog_posts') // updated to match your table
+        .from('blog_posts')
         .select('*')
         .order('created_at', { ascending: false });
 
@@ -120,13 +133,22 @@
       container.innerHTML = '';
 
       if (posts.length === 0) {
-        container.innerHTML = `<p style="text-align:center; padding:60px 20px; color:#666;">no blog posts yet. click create to add one!</p>`;
+        container.innerHTML = `<p style="text-align:center; padding:60px 20px; color:#666;">no blog posts yet.</p>`;
         return;
       }
 
       posts.forEach((post) => {
         const item = document.createElement('div');
         item.className = 'blog-item';
+        
+        // check if admin controls should be built
+        const controls = isAdmin ? `
+          <div class="admin-controls" style="margin-top:12px; display:flex; gap:8px;">
+            <button onclick="editPost('${post.id}')" style="padding:6px 14px; background:#2962ff; color:white; border:none; border-radius:4px; cursor:pointer;">Edit</button>
+            <button onclick="deletePost('${post.id}')" style="padding:6px 14px; background:#ff4444; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+          </div>
+        ` : '';
+
         item.innerHTML = `
           <div class="blog-img">
             <img src="${post.image_url || 'images/blog-p-1.jpg'}" alt="${post.title}">
@@ -137,33 +159,41 @@
             <h2>${post.title}</h2>
             <p>${post.description || post.content.substring(0, 140)}...</p>
             <a href="#" onclick="readFullPost('${post.id}'); return false;">Read More</a>
-            
-            <div class="admin-controls" style="margin-top:12px; display:flex; gap:8px;">
-              <button onclick="editPost('${post.id}')" style="padding:6px 14px; background:#2962ff; color:white; border:none; border-radius:4px; cursor:pointer;">Edit</button>
-              <button onclick="deletePost('${post.id}')" style="padding:6px 14px; background:#ff4444; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
-            </div>
+            ${controls}
           </div>
         `;
         container.appendChild(item);
       });
     }
 
+    function tryLogin() {
+      const pass = prompt("enter admin password:");
+      if (pass === ADMIN_PASSWORD) {
+        isAdmin = true;
+        document.getElementById('createBtn').style.display = "inline-flex";
+        document.getElementById('adminLoginBtn').style.display = "none";
+        alert("✅ admin mode on!");
+        renderBlogPosts(); // re-render to show edit/delete buttons
+      } else {
+        alert("wrong password 💀");
+      }
+    }
+
     async function savePost() {
+      if (!isAdmin) return alert("nice try 💀");
       const title = document.getElementById('postTitle').value.trim();
       const description = document.getElementById('postDesc').value.trim();
       const image_url = document.getElementById('postImage').value.trim();
       const content = document.getElementById('postContent').value.trim();
 
-      if (!title || !content) return alert("fill the fields bro 💀");
+      if (!title || !content) return alert("fill it all out!");
 
       const postData = { title, description, image_url, content };
 
       if (currentEditId) {
-        const { error } = await supabaseClient.from('blog_posts').update(postData).eq('id', currentEditId);
-        if (error) alert(error.message);
+        await supabaseClient.from('blog_posts').update(postData).eq('id', currentEditId);
       } else {
-        const { error } = await supabaseClient.from('blog_posts').insert([postData]);
-        if (error) alert(error.message);
+        await supabaseClient.from('blog_posts').insert([postData]);
       }
 
       closeModal();
@@ -171,9 +201,9 @@
     }
 
     async function deletePost(id) {
-      if (confirm("delete this for real?")) {
-        const { error } = await supabaseClient.from('blog_posts').delete().eq('id', id);
-        if (error) alert(error.message);
+      if (!isAdmin) return alert("not an admin bro 💀");
+      if (confirm("delete this forever?")) {
+        await supabaseClient.from('blog_posts').delete().eq('id', id);
         fetchPosts();
       }
     }
@@ -211,13 +241,6 @@
     window.onload = () => {
       fetchPosts();
       document.getElementById('createBtn').onclick = openCreateModal;
-      setTimeout(() => {
-        const pass = prompt("enter admin password:");
-        if (pass === ADMIN_PASSWORD) {
-          document.getElementById('createBtn').style.display = "inline-flex";
-          alert("admin mode activated!");
-        }
-      }, 600);
     };
   </script>
 </body>
