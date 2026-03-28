@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <title>Brawlmap</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.1/css/all.min.css" 
+        integrity="sha512-+4zCK9k+qNFUR5X+cKL9EIR+ZOhtIloNl9GIKS57V1MyNsYpYcUrUeQc9vNfzsWfV28IaLL3i96P9sdNyeRssA==" 
+        crossorigin="anonymous" />
+  
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+
+  <header>
+    <nav class="navbar">
+      <div class="container">
+        <a href="index.html" class="navbar-brand">Brawlmap</a>
+        <div class="navbar-nav">
+          <a href="">home</a>
+          <a href="">design</a>
+          <a href="">blog</a>
+          <a href="">about</a>
+        </div>
+      </div>
+    </nav>
+    
+    <div class="banner">
+      <div class="container">
+        <h1 class="banner-title"><span>Brawlmap.</span> News</h1>
+        <p>everything that you want to know about art & design</p>
+        <form>
+          <input type="text" class="search-input" placeholder="find your food . . .">
+          <button type="submit" class="search-btn"><i class="fas fa-search"></i></button>
+        </form>
+      </div>
+    </div>
+  </header>
+
+  <section class="design" id="design">
+    <div class="container">
+      <div class="title">
+        <h2>Recent Arts & Designs</h2>
+        <p>recent arts & designs on the blog</p>
+      </div>
+      <div class="design-content">
+        </div>
+    </div>
+  </section>
+
+  <section class="blog" id="blog">
+    <div class="container">
+      <div class="title">
+        <h2>Latest Blog</h2>
+        <p>recent blogs about art & design</p>
+      </div>
+
+      <button class="create-btn" id="createBtn" style="display: none;">
+        <i class="fas fa-plus"></i> Create New Blog Post
+      </button>
+
+      <div class="blog-content" id="blogContent">
+        </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="social-links">
+      <a href="#"><i class="fab fa-facebook-f"></i></a>
+      <a href="#"><i class="fab fa-twitter"></i></a>
+      <a href="#"><i class="fab fa-instagram"></i></a>
+      <a href="#"><i class="fab fa-pinterest"></i></a>
+    </div>
+    <span>Art.Design Blog Page</span>
+  </footer>
+
+  <div class="modal" id="postModal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); align-items:center; justify-content:center; z-index:1000;">
+    <div class="modal-content" style="background:white; padding:2rem; border-radius:8px; width:90%; max-width:500px; display:flex; flex-direction:column; gap:1rem;">
+      <h2 id="modalTitle">Create New Blog Post</h2>
+      <input type="text" id="postTitle" placeholder="Blog Title" style="padding:10px;">
+      <input type="text" id="postDesc" placeholder="Short Description" style="padding:10px;">
+      <input type="text" id="postImage" placeholder="Image URL (https://...)" style="padding:10px;">
+      <textarea id="postContent" placeholder="Full blog content..." style="padding:10px; height:150px;"></textarea>
+      <div class="modal-buttons" style="display:flex; gap:10px; justify-content:flex-end;">
+        <button onclick="savePost()" style="padding:10px 20px; background:#2962ff; color:white; border:none; border-radius:4px; cursor:pointer;">Save Post</button>
+        <button onclick="closeModal()" style="padding:10px 20px; background:#ccc; border:none; border-radius:4px; cursor:pointer;">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // updated config
+    const SUPABASE_URL = 'https://sqzckjugwivmazyumeso.supabase.co'; // removed /blog_posts
+    const SUPABASE_KEY = 'sb_publishable_8ijaRjAdI8YZyrLgocflhA_Mh4ki9Qn'; 
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+    const ADMIN_PASSWORD = "tester"; 
+    let posts = [];
+    let currentEditId = null;
+
+    async function fetchPosts() {
+      const { data, error } = await supabaseClient
+        .from('blog_posts') // updated to match your table
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('error fetching:', error.message);
+        return;
+      }
+      posts = data;
+      renderBlogPosts();
+    }
+
+    function renderBlogPosts() {
+      const container = document.getElementById('blogContent');
+      container.innerHTML = '';
+
+      if (posts.length === 0) {
+        container.innerHTML = `<p style="text-align:center; padding:60px 20px; color:#666;">no blog posts yet. click create to add one!</p>`;
+        return;
+      }
+
+      posts.forEach((post) => {
+        const item = document.createElement('div');
+        item.className = 'blog-item';
+        item.innerHTML = `
+          <div class="blog-img">
+            <img src="${post.image_url || 'images/blog-p-1.jpg'}" alt="${post.title}">
+            <span><i class="far fa-heart"></i></span>
+          </div>
+          <div class="blog-text">
+            <span>${new Date(post.created_at).toLocaleDateString()}</span>
+            <h2>${post.title}</h2>
+            <p>${post.description || post.content.substring(0, 140)}...</p>
+            <a href="#" onclick="readFullPost('${post.id}'); return false;">Read More</a>
+            
+            <div class="admin-controls" style="margin-top:12px; display:flex; gap:8px;">
+              <button onclick="editPost('${post.id}')" style="padding:6px 14px; background:#2962ff; color:white; border:none; border-radius:4px; cursor:pointer;">Edit</button>
+              <button onclick="deletePost('${post.id}')" style="padding:6px 14px; background:#ff4444; color:white; border:none; border-radius:4px; cursor:pointer;">Delete</button>
+            </div>
+          </div>
+        `;
+        container.appendChild(item);
+      });
+    }
+
+    async function savePost() {
+      const title = document.getElementById('postTitle').value.trim();
+      const description = document.getElementById('postDesc').value.trim();
+      const image_url = document.getElementById('postImage').value.trim();
+      const content = document.getElementById('postContent').value.trim();
+
+      if (!title || !content) return alert("fill the fields bro 💀");
+
+      const postData = { title, description, image_url, content };
+
+      if (currentEditId) {
+        const { error } = await supabaseClient.from('blog_posts').update(postData).eq('id', currentEditId);
+        if (error) alert(error.message);
+      } else {
+        const { error } = await supabaseClient.from('blog_posts').insert([postData]);
+        if (error) alert(error.message);
+      }
+
+      closeModal();
+      fetchPosts();
+    }
+
+    async function deletePost(id) {
+      if (confirm("delete this for real?")) {
+        const { error } = await supabaseClient.from('blog_posts').delete().eq('id', id);
+        if (error) alert(error.message);
+        fetchPosts();
+      }
+    }
+
+    function editPost(id) {
+      const post = posts.find(p => p.id === id);
+      currentEditId = id;
+      document.getElementById('modalTitle').textContent = 'Edit Blog Post';
+      document.getElementById('postTitle').value = post.title;
+      document.getElementById('postDesc').value = post.description || '';
+      document.getElementById('postImage').value = post.image_url || '';
+      document.getElementById('postContent').value = post.content || '';
+      document.getElementById('postModal').style.display = 'flex';
+    }
+
+    function readFullPost(id) {
+      const post = posts.find(p => p.id === id);
+      alert(`📖 ${post.title}\n\n${post.content}`);
+    }
+
+    function openCreateModal() {
+      currentEditId = null;
+      document.getElementById('modalTitle').textContent = 'Create New Blog Post';
+      document.getElementById('postTitle').value = '';
+      document.getElementById('postDesc').value = '';
+      document.getElementById('postImage').value = '';
+      document.getElementById('postContent').value = '';
+      document.getElementById('postModal').style.display = 'flex';
+    }
+
+    function closeModal() {
+      document.getElementById('postModal').style.display = 'none';
+    }
+
+    window.onload = () => {
+      fetchPosts();
+      document.getElementById('createBtn').onclick = openCreateModal;
+      setTimeout(() => {
+        const pass = prompt("enter admin password:");
+        if (pass === ADMIN_PASSWORD) {
+          document.getElementById('createBtn').style.display = "inline-flex";
+          alert("admin mode activated!");
+        }
+      }, 600);
+    };
+  </script>
+</body>
+</html>
